@@ -62,7 +62,9 @@ console.log(inputValues);
       graphFilenameRoot = `${basePath}/graph`;
       //Launch the current browser context
       const browser = await playwright[b].launch({headless: headlessFlag, viewport: {width:viewportWidth, height:viewportHeight}});
-      const context = await browser.newContext();
+      const context = await browser.newContext(
+          {recordVideo: { dir: `${basePath}/videos` }}
+      );
       const page = await context.newPage();
 
       //Make sure errors and console events are catched
@@ -85,7 +87,8 @@ console.log(inputValues);
       //-------------------------------------------------------------------------------------------------------------------------------------------------
       //Web application ripping
       //Initial params: Playwright's Page object, URL of the current page, index of current page, parent's index
-      await recursiveExploration(page, baseUrl, 0, -1); 
+      await register(page, baseUrl)
+      await recursiveExploration(page, baseUrl, 0, -1);
   
       printTree(); //Log in the console
       createTree(); //Persist in JSON file
@@ -105,6 +108,30 @@ console.log(inputValues);
     console.log("Execution finished. Check the report under the results folder")
     return;  
   })();
+
+async function register(page, baseUrl){
+    console.log('Registering');
+    await page.goto(baseUrl);
+    await page.type('input[id="blog-title"]', 'Ripper Tests - Ghost');
+    await page.type('input[id="name"]', config.values.nameInput);
+    await page.type('input[id="email"]', config.values.emailInput);
+    await page.type('input[id="password"]', config.values.passwordInput);
+    await page.click('css=button.ember-view.gh-btn.gh-btn-black.gh-btn-signup.gh-btn-block.gh-btn-icon');
+    await page.waitForNavigation();
+    console.log('Registered');
+    console.log('New base url: ' + page.url());
+}
+
+async function login(page, baseUrl){
+  console.log('Logging in');
+  await page.goto(baseUrl);
+  await page.type('input[id="identification"]', config.values.userInput);
+  await page.type('input[id="password"]', config.values.passwordInput);
+  await page.click('css=button.login.gh-btn.gh-btn-login.gh-btn-block.gh-btn-icon.ember-view');
+  await page.waitForNavigation();
+  console.log('Logged in');
+  console.log('New base url: ' + page.url());
+}
 
 //Get all anchors <a>
 async function scrapLinks(page){
@@ -243,11 +270,26 @@ async function addListeners(page){
   });
 }
 
+// Function to close the modal if it exists
+async function closeModal(page) {
+  console.log('Checking for modals...');
+  const modalSelector = '.epm-modal-container'; // Adjust the selector as needed
+  const isModalVisible = await page.$(modalSelector);
+  if (isModalVisible) {
+    // Assuming there's a close button available within the modal
+    const closeButton = await page.$(`${modalSelector} .close`); // Adjust the selector as needed
+    if (closeButton) {
+      await closeButton.click();
+      await page.waitForSelector(modalSelector, {state: 'hidden'}); // Wait for the modal to disappear
+    }
+  }
+}
+
 //Function to clean the directories that are going to be used during executions.
-function clean (directory){
+function clean(directory) {
   fs.readdir(directory, (err, files) => {
     if (err) throw err;
-  
+
     for (const file of files) {
       fs.unlink(path.join(directory, file), err => {
         if (err) throw err;
@@ -374,10 +416,13 @@ async function getButtons(page, elementList){
   let buttons = await page.$$('button');
   let button;
   for (let i = 0; i < buttons.length ; i++ ){
-    let disabled = page.evaluate((btn)=>{
+    let disabled = await page.evaluate((btn)=>{
       return typeof btn.getAttribute("disabled") === "string" || btn.getAttribute("aria-disabled") === "true";
     }, buttons[i]);
-    if(!disabled){
+    let ignored = await page.evaluate((btn)=>{
+      return typeof btn.title.includes("Search site") || btn.innerText === "Forgot?" || btn.innerText === "Add feature image";
+    }, buttons[i]);
+    if(!disabled && !ignored){
       button = {
         'type' : 'button',
         'element': buttons[i],
@@ -422,6 +467,8 @@ async function interactWithObject(object, page, currentState, interactionNumber,
     let elementHandle = object.element;
     let location = await  getCoordinates(elementHandle, page);
     if (location.x !== 0 && location.y !== 0 && location.width !== 0 && location.height !== 0){
+
+      await closeModal(page);
       await elementHandle.hover().catch(e =>{
         console.log('Could not hover to element');
       });
@@ -441,7 +488,6 @@ async function interactWithObject(object, page, currentState, interactionNumber,
           await fillInput(elementHandle, page);
         }
       }
-      //TODO: What happens to inputs that are not specified on the config file?
       else{
         await fillInput(elementHandle, page);
       }
@@ -463,7 +509,6 @@ async function interactWithObject(object, page, currentState, interactionNumber,
       });
       let html = await getDOM(page);
       if(!!html) {
-
         let parsedHtml = parser.parse(html);
         let body = parsedHtml.querySelector('body');
         let DOM = body.structure;
@@ -629,31 +674,31 @@ async function fillInput(elementHandle, page){
     return el.type;
   }, elementHandle);
   if(type === 'text'){
-    elementHandle.click();
-    page.keyboard.type(faker.lorem.words());
+    await elementHandle.click();
+    await page.keyboard.type(faker.lorem.words());
   }
   else if(type === 'search'){
-    elementHandle.click();
-    page.keyboard.type(faker.random.alphaNumeric());
+    await elementHandle.click();
+    await page.keyboard.type(faker.lorem.words());
   }
   else if(type === 'password'){
-    elementHandle.click();
-    page.keyboard.type(faker.internet.password()); 
+    await elementHandle.click();
+    await page.keyboard.type(faker.internet.password());
   }
   else if(type === 'email'){
-    elementHandle.click();
-    page.keyboard.type(faker.internet.email());
+    await elementHandle.click();
+    await page.keyboard.type(faker.internet.email());
   }
   else if (type === 'tel'){
-    elementHandle.click();
-    page.keyboard.type(faker.phone.phoneNumber()) ;
+    await elementHandle.click();
+    await page.keyboard.type(faker.phone.phoneNumber()) ;
   }
   else if (type === 'number'){
-    elementHandle.click();
-    page.keyboard.type(faker.random.number) ;
+    await elementHandle.click();
+    await page.keyboard.type(faker.random.number) ;
   }
   else if(type === 'submit' || type === 'radio' || type === 'checkbox'){
-    elementHandle.click();
+    await elementHandle.click();
   }
 }
 
