@@ -1,12 +1,12 @@
 {
-    "url": "https://thesoftwaredesignlab.github.io",
+    "url": "http://localhost:2368/ghost",
     "headless": true,
-    "depthLevels": 1,
+    "depthLevels": 3,
     "inputValues": false,
-    "values": {"userInput": "Mario",
-        "passwordInput": "123456",
+    "values": {"userInput": "nombre.apellido@correo.com",
+        "passwordInput": "He4r7jkAGZqK",
         "passwordTwoInput": "123456",
-        "nameInput": "Mario",
-        "emailInput": "mario@b.com"},
-    "browsers": ["chromium", "webkit", "firefox"]
+        "nameInput": "Angel Henao",
+        "emailInput": "nombre.apellido@correo.com"},
+    "browsers": ["firefox"]
 }
