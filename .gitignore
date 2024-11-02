@@ -8,3 +8,5 @@ temp*/
 *graph3.json
 firebaseConfig.js
 results/
+.idea
+.vscode
